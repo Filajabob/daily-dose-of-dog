@@ -2,7 +2,8 @@ import json
 import datetime
 import os
 import random
-import io
+from threading import Thread
+import time
 
 import pytz
 import discord
@@ -29,7 +30,7 @@ async def send_to_subscribers(text=None, file=None):
         await channel.send(text, file=file)
 
 
-async def post():
+def post():
     if datetime.datetime.now(EST).time() >= datetime.time(10):
         images = os.listdir("assets/images")
 
@@ -49,6 +50,16 @@ async def post():
 
         await send_to_subscribers(f"daily dose of dog #{total_doses + 1}", image)
 
+        return True
+    else:
+        return False
+
+
+@client.event
+async def on_ready():
+    print("Ready.")
+    Thread(target=run_posting).start()
+
 
 @client.command()
 async def subscribe(ctx):
@@ -62,8 +73,12 @@ async def subscribe(ctx):
             await ctx.reply("You are already subscribed!")
 
 
-@client.command()
-async def test(ctx):
-    await post()
+def run_posting():
+    posted = False
+
+    while not posted:
+        posted = post()
+        time.sleep(1)
+
 
 client.run(TOKEN)
