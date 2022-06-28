@@ -4,6 +4,7 @@ import os
 import random
 from threading import Thread
 import time
+import asyncio
 
 import pytz
 import discord
@@ -30,8 +31,9 @@ async def send_to_subscribers(text=None, file=None):
         await channel.send(text, file=file)
 
 
-def post():
+async def post():
     if datetime.datetime.now(EST).time() >= datetime.time(10):
+        print("heelo")
         images = os.listdir("assets/images")
 
         if not images:
@@ -58,7 +60,8 @@ def post():
 @client.event
 async def on_ready():
     print("Ready.")
-    Thread(target=run_posting).start()
+    # TODO: Test this
+    Thread(target=asyncio.run_coroutine_threadsafe(client.loop, run_posting)).start()
 
 
 @client.command()
@@ -73,7 +76,7 @@ async def subscribe(ctx):
             await ctx.reply("You are already subscribed!")
 
 
-def run_posting():
+async def run_posting():
     posted = False
 
     while not posted:
