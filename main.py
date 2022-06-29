@@ -23,23 +23,41 @@ client = commands.Bot(command_prefix="d!")
 admin = None
 
 
-async def send_to_subscribers(text=None, file=None, plug_subscription=False):
+async def send_to_subscribers(text=None, filepath=None, plug_subscription=False, *, embed=None):
     await client.wait_until_ready()
 
     with open("assets/users/subscribers.json", 'r') as f:
         subscribers = json.load(f)
 
-    for subscriber in subscribers:
-        user = await client.fetch_user(subscriber)
-        await user.send(text, file=file)
+    if text:
+        for subscriber in subscribers:
+            file = discord.File(filepath)
 
-    for channel in subscribed_channels:
-        channel = await client.fetch_channel(channel)
-        await channel.send(text, file=file)
+            user = await client.fetch_user(subscriber)
+            await user.send(text, file=file)
 
-        if plug_subscription and random.randint(1, 4) == 1:
-            await channel.send("Want doggos in your DMs? Subscribe for FREE by using the d!subscribe command. "
-                               "Unsubscribe anytime the doggos get too cute. (d!unsubscribe)")
+        for channel in subscribed_channels:
+            file = discord.File(filepath)
+
+            channel = await client.fetch_channel(channel)
+            await channel.send(text, file=file)
+
+            if plug_subscription and random.randint(1, 4) == 1:
+                await channel.send("Want doggos in your DMs? Subscribe for FREE by using the d!subscribe command. "
+                                   "Unsubscribe anytime the doggos get too cute. (d!unsubscribe)")
+
+    elif embed:
+        for subscriber in subscribers:
+            user = await client.fetch_user(subscriber)
+            await user.send(embed=embed)
+
+        for channel in subscribed_channels:
+            channel = await client.fetch_channel(channel)
+            await channel.send(embed=embed)
+
+            if plug_subscription and random.randint(1, 4) == 1:
+                await channel.send("Want doggos in your DMs? Subscribe for FREE by using the d!subscribe command. "
+                                   "Unsubscribe anytime the doggos get too cute. (d!unsubscribe)")
 
 
 async def post():
@@ -48,28 +66,27 @@ async def post():
         images = os.listdir("assets/images")
 
         if len(images) < 3 and len(images) != 0:
-            admin.send(f"We have {len(images)} images left. TAKE MORE PICTURES")
+            await admin.send(f"We have {len(images)} images left. TAKE MORE PICTURES")
 
         if not images:
             await send_to_subscribers("we ran out of doggos, no dogs today")
-            admin.send("WE ARE OUT OF IMAGES")
+            await admin.send("WE ARE OUT OF IMAGES")
 
             return True
-
-        image_name = random.choice(images)
-
-        with open(f"assets/images/{image_name}", 'rb') as f:
-            image = discord.File(f)
 
         with open("assets/misc/total_doses.txt", 'r+') as f:
             total_doses = int(f.read())
             f.seek(0)
             f.write(str(total_doses + 1))
 
-        await send_to_subscribers(f"daily dose of dog #{total_doses + 1}", image, True)
+        image_name = random.choice(images)
+
+        await send_to_subscribers(f"daily dose of dog #{total_doses + 1}",
+                                  filepath=f"assets/images/{image_name}")
+
+        await asyncio.sleep(7)
 
         os.remove(f"assets/images/{image_name}")
-        await asyncio.sleep(7)
 
         return True
     else:
@@ -95,7 +112,33 @@ async def on_ready():
     global admin
     admin = await client.fetch_user(813548110193754134)
 
+    await update_next_dosage_time.start()
     await run_posting()
+
+
+@tasks.loop(minutes=10)
+async def update_next_dosage_time():
+    # Daily dosage already happened today
+    if datetime.datetime.now(tz=EST).time() > datetime.time(7, tzinfo=EST):
+        now = datetime.datetime.now(tz=EST)
+
+        dt = datetime.datetime.combine(datetime.date.today() + datetime.timedelta(days=1),
+                                       datetime.time(7, tzinfo=EST), tzinfo=EST) - \
+             datetime.datetime.combine(datetime.date.today(), now.time(), tzinfo=EST)
+
+        await client.change_presence(
+            activity=discord.Activity(type=discord.ActivityType.watching,
+                                      name=f"the next dosage in {round(dt.days * 24 + dt.seconds / 3600)} hours"))
+
+    # Daily dosage will happen today
+    else:
+        now = datetime.time(tzinfo=EST)
+        dt = datetime.datetime.combine(datetime.date.today(), datetime.time(7, tzinfo=EST), tzinfo=EST) - \
+             datetime.datetime.combine(datetime.date.today(), now.time(), tzinfo=EST)
+
+        await client.change_presence(
+            activity=discord.Activity(type=discord.ActivityType.watching,
+                                      name=f"the next dosage in {round(dt.days * 24 + dt.seconds / 3600)} hours"))
 
 
 @client.command()
