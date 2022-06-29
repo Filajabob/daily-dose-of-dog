@@ -2,7 +2,6 @@ import json
 import datetime
 import os
 import random
-from threading import Thread
 import time
 import asyncio
 
@@ -10,15 +9,18 @@ import pytz
 import discord
 from discord.ext import commands
 
-TOKEN = "OTkxMTUyODQ2NDIwNTk0Nzk5.GQfS8M.3coCLcwY90wbnSWbE2o0juv6jOhHHvO_K9bCuY"
+TOKEN = os.getenv("TOKEN")
+
 EST = pytz.timezone("America/New_York")
+POST_TIME = (7, 0, 0)
 
 subscribed_channels = [991166247616131083]
-
 client = commands.Bot(command_prefix="d!")
 
 
-async def send_to_subscribers(text=None, file=None):
+async def send_to_subscribers(text=None, file=None, plug_subscription=False):
+    await client.wait_until_ready()
+
     with open("assets/users/subscribers.json", 'r') as f:
         subscribers = json.load(f)
 
@@ -30,19 +32,23 @@ async def send_to_subscribers(text=None, file=None):
         channel = await client.fetch_channel(channel)
         await channel.send(text, file=file)
 
+        if plug_subscription and random.randint(1, 4) == 1:
+            await channel.send("Want doggos in your DMs? Subscribe for FREE by using the d!subscribe command. "
+                               "Unsubscribe anytime the doggos get too cute. (d!unsubscribe)")
+
 
 async def post():
-    if datetime.datetime.now(EST).time() >= datetime.time(10):
-        print("heelo")
+    if datetime.time(POST_TIME[0], POST_TIME[1], POST_TIME[2] + 5) >= \
+            datetime.datetime.now(EST).time() >= datetime.time(*POST_TIME):
         images = os.listdir("assets/images")
 
         if not images:
             await send_to_subscribers("we ran out of doggos, no dogs today")
-            return
+            return True
 
-        image = random.choice(images)
+        image_name = random.choice(images)
 
-        with open(f"assets/images/{image}", 'rb') as f:
+        with open(f"assets/images/{image_name}", 'rb') as f:
             image = discord.File(f)
 
         with open("assets/misc/total_doses.txt", 'r+') as f:
@@ -50,33 +56,28 @@ async def post():
             f.seek(0)
             f.write(str(total_doses + 1))
 
-        await send_to_subscribers(f"daily dose of dog #{total_doses + 1}", image)
+        await send_to_subscribers(f"daily dose of dog #{total_doses + 1}", image, True)
+
+        os.remove(f"assets/images/{image_name}")
+        await asyncio.sleep(7)
 
         return True
     else:
         return False
 
 
-
 async def run_posting():
     posted = False
 
     while not posted:
-        posted = post()
-        time.sleep(1)
-
-
-@client.command()
-async def help(ctx):
-    em = discord.Embed(title="Help", description="Command prefix: d!")
-    em.add_field(name="subscribe", value="Subscribe to daily dog photos")
-    em.add_field(name="unsubscribe", value="Unsubscribe from daily dog photos")
+        posted = await post()
+        await asyncio.sleep(1)
 
 
 @client.event
 async def on_ready():
     print("Ready.")
-    Thread(target=asyncio.run_coroutine_threadsafe(client.loop, run_posting)).start()
+    await run_posting()
 
 
 @client.command()
@@ -90,11 +91,43 @@ async def subscribe(ctx):
         else:
             await ctx.reply("You are already subscribed!")
 
+        f.seek(0)
+        json.dump(subscribers, f)
+        f.truncate()
+
 
 @client.command()
-async def next_dose(ctx):
-    today = datetime.datetime.now()
-    dt = datetime.datetime(today.year, today.month, today.day, POST)
+async def unsubscribe(ctx):
+    with open("assets/users/subscribers.json", 'r+') as f:
+        subscribers = json.load(f)
 
+        if ctx.author.id in subscribers:
+            subscribers.remove(ctx.author.id)
+            await ctx.reply("You have been unsubscribed from the Daily Dose of Dog.")
+        else:
+            await ctx.reply("You are not subscribed!")
+
+        f.seek(0)
+        json.dump(subscribers, f)
+        f.truncate()
+
+
+@client.command()
+async def upload(ctx):
+    if ctx.author.id not in (813548110193754134, 813544462831190026):
+        await ctx.reply("You can't do that!")
+        return
+
+    if not ctx.message.attachments:
+        await ctx.reply("Images not detected: attach image(s) to the message when running the command.")
+        return
+
+    i = 0
+
+    for attachment in ctx.message.attachments:
+        await attachment.save(f"assets/images/{time.strftime('%m_%d_%Y %H_%M_%S')} {i}.png")
+        i += 1
+
+    await ctx.reply("Image(s) saved successfully.")
 
 client.run(TOKEN)
