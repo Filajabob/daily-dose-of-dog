@@ -5,17 +5,21 @@ import random
 import time
 import asyncio
 
+import pause
 import pytz
 import discord
 from discord.ext import commands
 
-TOKEN = os.getenv("TOKEN")
+with open("assets/misc/TOKEN.txt", 'r') as f:
+    TOKEN = f.read()
 
 EST = pytz.timezone("America/New_York")
 POST_TIME = (7, 0, 0)
 
 subscribed_channels = [991166247616131083]
 client = commands.Bot(command_prefix="d!")
+
+admin = None
 
 
 async def send_to_subscribers(text=None, file=None, plug_subscription=False):
@@ -42,8 +46,13 @@ async def post():
             datetime.datetime.now(EST).time() >= datetime.time(*POST_TIME):
         images = os.listdir("assets/images")
 
+        if len(images) < 3 and len(images) != 0:
+            admin.send(f"We have {len(images)} images left. TAKE MORE PICTURES")
+
         if not images:
             await send_to_subscribers("we ran out of doggos, no dogs today")
+            admin.send("WE ARE OUT OF IMAGES")
+
             return True
 
         image_name = random.choice(images)
@@ -69,14 +78,22 @@ async def post():
 async def run_posting():
     posted = False
 
-    while not posted:
-        posted = await post()
-        await asyncio.sleep(1)
+    while True:
+        while not posted:
+            posted = await post()
+            await asyncio.sleep(1)
+
+        pause.until(datetime.datetime.combine(datetime.date.today() + datetime.timedelta(days=1),
+                                              datetime.datetime.min.time()))
 
 
 @client.event
 async def on_ready():
     print("Ready.")
+
+    global admin
+    admin = await client.fetch_user(813548110193754134)
+
     await run_posting()
 
 
