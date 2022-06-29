@@ -2,12 +2,12 @@ import json
 import datetime
 import os
 import random
-from threading import Thread
 import time
 import asyncio
 
 from app import run
 
+import pause
 import pytz
 import discord
 from discord.ext import commands, tasks
@@ -19,6 +19,8 @@ POST_TIME = (7, 0, 0)
 
 subscribed_channels = [991166247616131083]
 client = commands.Bot(command_prefix="d!")
+
+admin = None
 
 
 async def send_to_subscribers(text=None, file=None, plug_subscription=False):
@@ -45,8 +47,13 @@ async def post():
             datetime.datetime.now(EST).time() >= datetime.time(*POST_TIME):
         images = os.listdir("assets/images")
 
+        if len(images) < 3 and len(images) != 0:
+            admin.send(f"We have {len(images)} images left. TAKE MORE PICTURES")
+
         if not images:
             await send_to_subscribers("we ran out of doggos, no dogs today")
+            admin.send("WE ARE OUT OF IMAGES")
+
             return True
 
         image_name = random.choice(images)
@@ -72,14 +79,22 @@ async def post():
 async def run_posting():
     posted = False
 
-    while not posted:
-        posted = await post()
-        await asyncio.sleep(1)
+    while True:
+        while not posted:
+            posted = await post()
+            await asyncio.sleep(1)
+
+        pause.until(datetime.datetime.combine(datetime.date.today() + datetime.timedelta(days=1),
+                                              datetime.datetime.min.time()))
 
 
 @client.event
 async def on_ready():
     print("Ready.")
+
+    global admin
+    admin = await client.fetch_user(813548110193754134)
+
     await run_posting()
 
 
@@ -98,6 +113,40 @@ async def subscribe(ctx):
         json.dump(subscribers, f)
         f.truncate()
 
+
+@client.command()
+async def unsubscribe(ctx):
+    with open("assets/users/subscribers.json", 'r+') as f:
+        subscribers = json.load(f)
+
+        if ctx.author.id in subscribers:
+            subscribers.remove(ctx.author.id)
+            await ctx.reply("You have been unsubscribed from the Daily Dose of Dog.")
+        else:
+            await ctx.reply("You are not subscribed!")
+
+        f.seek(0)
+        json.dump(subscribers, f)
+        f.truncate()
+
+
+@client.command()
+async def upload(ctx):
+    if ctx.author.id not in (813548110193754134, 813544462831190026):
+        await ctx.reply("You can't do that!")
+        return
+
+    if not ctx.message.attachments:
+        await ctx.reply("Images not detected: attach image(s) to the message when running the command.")
+        return
+
+    i = 0
+
+    for attachment in ctx.message.attachments:
+        await attachment.save(f"assets/images/{time.strftime('%m_%d_%Y %H_%M_%S')} {i}.png")
+        i += 1
+
+    await ctx.reply("Image(s) saved successfully.")
 
 @client.command()
 async def unsubscribe(ctx):
