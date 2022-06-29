@@ -12,8 +12,7 @@ import pytz
 import discord
 from discord.ext import commands, tasks
 
-with open("assets/misc/TOKEN.txt", 'r') as f:
-    TOKEN = f.read()
+TOKEN = os.getenv("TOKEN")  # For Replit only
 
 EST = pytz.timezone("America/New_York")
 POST_TIME = (7, 0, 0)
