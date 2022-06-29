@@ -149,23 +149,5 @@ async def upload(ctx):
     await ctx.reply("Image(s) saved successfully.")
 
 
-@client.command()
-async def upload(ctx):
-    if ctx.author.id not in (813548110193754134, 813544462831190026):
-        await ctx.reply("You can't do that!")
-        return
-
-    if not ctx.message.attachments:
-        await ctx.reply("Images not detected: attach image(s) to the message when running the command.")
-        return
-
-    i = 0
-
-    for attachment in ctx.message.attachments:
-        await attachment.save(f"assets/images/{time.strftime('%m_%d_%Y %H_%M_%S')} {i}.png")
-        i += 1
-
-    await ctx.reply("Image(s) saved successfully.")
-
 run()
 client.run(TOKEN)
