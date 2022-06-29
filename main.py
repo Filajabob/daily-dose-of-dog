@@ -57,10 +57,25 @@ async def post():
         return False
 
 
+
+async def run_posting():
+    posted = False
+
+    while not posted:
+        posted = post()
+        time.sleep(1)
+
+
+@client.command()
+async def help(ctx):
+    em = discord.Embed(title="Help", description="Command prefix: d!")
+    em.add_field(name="subscribe", value="Subscribe to daily dog photos")
+    em.add_field(name="unsubscribe", value="Unsubscribe from daily dog photos")
+
+
 @client.event
 async def on_ready():
     print("Ready.")
-    # TODO: Test this
     Thread(target=asyncio.run_coroutine_threadsafe(client.loop, run_posting)).start()
 
 
@@ -76,12 +91,10 @@ async def subscribe(ctx):
             await ctx.reply("You are already subscribed!")
 
 
-async def run_posting():
-    posted = False
-
-    while not posted:
-        posted = post()
-        time.sleep(1)
+@client.command()
+async def next_dose(ctx):
+    today = datetime.datetime.now()
+    dt = datetime.datetime(today.year, today.month, today.day, POST)
 
 
 client.run(TOKEN)
