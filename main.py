@@ -148,21 +148,6 @@ async def upload(ctx):
 
     await ctx.reply("Image(s) saved successfully.")
 
-@client.command()
-async def unsubscribe(ctx):
-    with open("assets/users/subscribers.json", 'r+') as f:
-        subscribers = json.load(f)
-
-        if ctx.author.id in subscribers:
-            subscribers.remove(ctx.author.id)
-            await ctx.reply("You have been unsubscribed from the Daily Dose of Dog.")
-        else:
-            await ctx.reply("You are not subscribed!")
-
-        f.seek(0)
-        json.dump(subscribers, f)
-        f.truncate()
-
 
 @client.command()
 async def upload(ctx):
